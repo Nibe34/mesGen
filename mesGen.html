@@ -44,7 +44,8 @@
       box-sizing: border-box;
     }
 
-    #output-message {
+    #output-message,
+    #output-request {
       height: 400px;
       background-color: #fafafa;
     }
@@ -74,6 +75,11 @@
       padding: 8px;
       border: 1px solid #ccc;
       border-radius: 4px;
+    }
+
+    .form-group input[readonly] {
+      background-color: #f0f0f0;
+      color: #555;
     }
 
     .btn {
@@ -119,6 +125,113 @@
       grid-template-columns: 1fr 1fr;
       gap: 0 20px;
     }
+
+    .option-block {
+      border-top: 1px solid #eee;
+      padding-top: 12px;
+      margin-top: 4px;
+      margin-bottom: 12px;
+    }
+
+    .option-title {
+      font-weight: 500;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .radio-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 20px;
+    }
+
+    .radio-options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 400;
+      cursor: pointer;
+    }
+
+    .radio-options input[type="radio"] {
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .partial-fields {
+      border: 1px dashed #c9c9c9;
+      border-radius: 6px;
+      background: #fafafa;
+      padding: 12px 12px 4px;
+      margin-bottom: 12px;
+    }
+
+    .partial-fields .form-group label {
+      width: 200px;
+    }
+
+    .verify {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 4px 0 8px;
+    }
+
+    .verify-ok {
+      color: #218838;
+    }
+
+    .verify-bad {
+      color: #c82333;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .tab {
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-bottom: none;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-radius: 6px 6px 0 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: #555;
+    }
+
+    .tab.active {
+      background: #0056b3;
+      color: #fff;
+      border-color: #0056b3;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: #218838;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      font-size: 14px;
+      max-width: 320px;
+      opacity: 0;
+      transform: translateY(16px);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
   </style>
 </head>
 
@@ -152,6 +265,10 @@
           <input type="text" id="edit-guests">
         </div>
         <div class="form-group">
+          <label>Дорослих:</label>
+          <input type="text" id="edit-adults">
+        </div>
+        <div class="form-group">
           <label>Дата заїзду:</label>
           <input type="text" id="edit-checkin">
         </div>
@@ -172,6 +289,41 @@
           <input type="text" id="edit-link" value="https://tavelhotel.com/">
         </div>
       </div>
+
+      <!-- Знижка -->
+      <div class="option-block">
+        <div class="option-title">Знижка:</div>
+        <div class="radio-options">
+          <label><input type="radio" name="discount" value="none"> немає</label>
+          <label><input type="radio" name="discount" value="5" checked> Постійний 5%</label>
+          <label><input type="radio" name="discount" value="10"> Постійний 10%</label>
+          <label><input type="radio" name="discount" value="ubd"> УБД 10%</label>
+        </div>
+      </div>
+
+      <!-- Поділ рахунку -->
+      <div class="option-block">
+        <div class="option-title">Поділ рахунку:</div>
+        <div class="radio-options">
+          <label><input type="radio" name="payment" value="checkin" checked> оплата при поселенні</label>
+          <label><input type="radio" name="payment" value="full"> повна передоплата</label>
+          <label><input type="radio" name="payment" value="partial"> часткова</label>
+        </div>
+      </div>
+
+      <!-- Поля для часткової оплати -->
+      <div class="partial-fields" id="partial-fields" style="display: none;">
+        <div class="form-group">
+          <label>Передоплата (грн):</label>
+          <input type="text" id="edit-prepay">
+        </div>
+        <div class="form-group">
+          <label>Залишок при поселенні (грн):</label>
+          <input type="text" id="edit-remainder" readonly>
+        </div>
+        <div class="verify" id="partial-verify"></div>
+      </div>
+
       <div class="controls">
         <button class="btn" onclick="generateMessage()">Оновити повідомлення</button>
       </div>
@@ -180,13 +332,21 @@
     <!-- Результат -->
     <div class="panel full-width">
       <h2>3. Готове повідомлення для клієнта</h2>
+      <div class="tabs">
+        <button class="tab active" data-tab="tab-confirm" onclick="switchTab('tab-confirm')">Підтвердження бронювання</button>
+        <button class="tab" data-tab="tab-request" onclick="switchTab('tab-request')">Заявка з сайту</button>
+      </div>
       <textarea id="output-message" readonly></textarea>
+      <textarea id="output-request" readonly style="display: none;"></textarea>
       <div class="controls">
         <button class="btn btn-success" onclick="copyResult()">Скопіювати повідомлення</button>
         <button class="btn btn-danger" onclick="clearAll()">Очистити все</button>
       </div>
     </div>
   </div>
+
+  <!-- Toast-повідомлення -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
     const inputElement = document.getElementById('input-system');
@@ -229,6 +389,43 @@
       return "";
     }
 
+    // Перетворює число у формат "39 398.00" (пробіл як розділювач тисяч)
+    function formatMoney(value) {
+      const raw = String(value).replace(/\s/g, '').replace(/,/g, '.');
+      const num = parseFloat(raw);
+      if (isNaN(num)) return String(value).trim();
+      const fixed = num.toFixed(2);
+      const [intPart, decPart] = fixed.split('.');
+      const sign = intPart.startsWith('-') ? '-' : '';
+      const digits = sign ? intPart.slice(1) : intPart;
+      const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      return `${sign}${grouped}.${decPart}`;
+    }
+
+    function parseNumber(value) {
+      const raw = String(value).replace(/\s/g, '').replace(/,/g, '.');
+      const num = parseFloat(raw);
+      return isNaN(num) ? null : num;
+    }
+
+    // "17 вересня 2026" / "17.09.2026" / "17/09/2026" -> "17.09.2026"
+    function formatDateDot(str) {
+      if (!str) return '';
+      const s = String(str).trim();
+      let m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+      if (m) return `${m[1].padStart(2, '0')}.${m[2].padStart(2, '0')}.${m[3]}`;
+      m = s.match(/^(\d{1,2})\s+([а-яіїєґ']+)\s+(\d{4})$/i);
+      if (m) {
+        const monthIdx = ukrMonths[m[2].toLowerCase()];
+        if (monthIdx !== undefined) {
+          return `${m[1].padStart(2, '0')}.${String(monthIdx + 1).padStart(2, '0')}.${m[3]}`;
+        }
+      }
+      m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) return `${m[1].padStart(2, '0')}.${m[2].padStart(2, '0')}.${m[3]}`;
+      return s;
+    }
+
     function parseSystemMessage(text) {
       if (!text.trim()) return;
 
@@ -263,6 +460,7 @@
       document.getElementById('edit-name').value = firstName;
       document.getElementById('edit-room').value = roomMatch ? roomMatch[1].trim().toUpperCase() : "";
       document.getElementById('edit-guests').value = totalGuests;
+      document.getElementById('edit-adults').value = adultsMatch ? adults : "";
       document.getElementById('edit-checkin').value = checkIn;
       document.getElementById('edit-checkout').value = checkOut;
       document.getElementById('edit-nights').value = nights;
@@ -271,16 +469,84 @@
       generateMessage();
     }
 
+    function getDiscountSuffix() {
+      const val = (document.querySelector('input[name="discount"]:checked') || {}).value || 'none';
+      switch (val) {
+        case '5': return ' _- із врахуванням знижки Постійного гостя (-5%)_';
+        case '10': return ' _- із врахуванням знижки Постійного гостя (-10%)_';
+        case 'ubd': return ' _- із врахуванням знижки УБД (-10%)_';
+        default: return '';
+      }
+    }
+
+    function getPaymentLine(amountFormatted) {
+      const val = (document.querySelector('input[name="payment"]:checked') || {}).value || 'checkin';
+      if (val === 'partial') {
+        const prepay = formatMoney(document.getElementById('edit-prepay').value || 0);
+        const remainder = formatMoney(document.getElementById('edit-remainder').value || 0);
+        return `*💳 Умови оплати: передоплата ${prepay} грн, оплата при поселенні - ${remainder} грн.*`;
+      }
+      if (val === 'full') {
+        return `*💳 Умови оплати: повна передоплата - в розмірі ${amountFormatted} грн.*`;
+      }
+      return `*💳 Умови оплати: оплата при поселенні - в розмірі ${amountFormatted} грн.*`;
+    }
+
+    function isPartial() {
+      return ((document.querySelector('input[name="payment"]:checked') || {}).value || 'checkin') === 'partial';
+    }
+
+    function setPartialDefaults() {
+      const amount = parseNumber(document.getElementById('edit-amount').value);
+      if (amount === null) return;
+      const prepay = Math.round((amount / 2) * 100) / 100;
+      document.getElementById('edit-prepay').value = prepay.toFixed(2);
+    }
+
+    function recalcPartial() {
+      const amount = parseNumber(document.getElementById('edit-amount').value);
+      const prepayInput = document.getElementById('edit-prepay');
+      const remInput = document.getElementById('edit-remainder');
+      const verify = document.getElementById('partial-verify');
+
+      if (amount === null) {
+        verify.textContent = '';
+        verify.className = 'verify';
+        return;
+      }
+
+      let prepay = parseNumber(prepayInput.value);
+      if (prepay === null) {
+        prepay = Math.round((amount / 2) * 100) / 100;
+        prepayInput.value = prepay.toFixed(2);
+      }
+
+      const remainder = Math.round((amount - prepay) * 100) / 100;
+      remInput.value = remainder.toFixed(2);
+
+      const sum = Math.round((prepay + remainder) * 100) / 100;
+      const match = Math.abs(sum - amount) < 0.005;
+      verify.textContent = match
+        ? `Сума: ${formatMoney(sum)} грн ✓ (дорівнює загальній)`
+        : `Сума: ${formatMoney(sum)} грн ≠ загальна (${formatMoney(amount)} грн)`;
+      verify.className = 'verify ' + (match ? 'verify-ok' : 'verify-bad');
+    }
+
     function generateMessage() {
+      recalcPartial();
+
       const name = document.getElementById('edit-name').value;
       const booking = document.getElementById('edit-booking').value;
       const room = document.getElementById('edit-room').value;
       const guests = document.getElementById('edit-guests').value;
       const nights = document.getElementById('edit-nights').value;
-      const amount = document.getElementById('edit-amount').value;
+      const amount = formatMoney(document.getElementById('edit-amount').value);
       const link = document.getElementById('edit-link').value;
       const checkIn = document.getElementById('edit-checkin').value;
       const checkOut = document.getElementById('edit-checkout').value;
+
+      const discountSuffix = getDiscountSuffix();
+      const paymentLine = getPaymentLine(amount);
 
       const template = `Вітаємо, ${name}! ☺️
 Дякуємо, що обираєте готель TAVEL! ❤️
@@ -290,7 +556,7 @@
 🔹 Тип номеру: ${room} 
 🔹 Кількість гостей: ${guests} осіб.
 🔹 Кількість ночей: ${nights}.
-🔹 Вартість проживання: ${amount} грн. _- із врахуванням знижки Постійного гостя (-5%)_
+🔹 Вартість проживання: ${amount} грн.${discountSuffix}
 🔹 Посилання на світлини номеру: ${link}
 
 🔍Правила та умови розміщення: https://tavelhotel.com/pravyla-publichnoyi-oferty/
@@ -299,7 +565,7 @@
 Заїзд: ${checkIn} з 15:00
 Виїзд: ${checkOut} до 12:00
 
-*💳 Умови оплати: оплата при поселенні - в розмірі ${amount} грн.*
+${paymentLine}
 
 У вкладеному файлі надсилаємо Вам підтвердження бронювання.
 
@@ -355,13 +621,72 @@ _Зверніть увагу: тариф - без повернення кошт�
 До зустрічі в TAVEL – там, де комфорт і краса Карпат створюють справжній відпочинок. 🏞💫`;
 
       document.getElementById('output-message').value = template;
+
+      generateRequestMessage();
     }
 
-    function copyResult() {
-      const outputElement = document.getElementById('output-message');
-      outputElement.select();
-      document.execCommand('copy');
-      alert("Повідомлення скопійовано в буфер обміну.");
+    function generateRequestMessage() {
+      const name = document.getElementById('edit-name').value;
+      const room = document.getElementById('edit-room').value;
+      const amount = formatMoney(document.getElementById('edit-amount').value);
+      const link = document.getElementById('edit-link').value;
+      const checkIn = formatDateDot(document.getElementById('edit-checkin').value);
+      const checkOut = formatDateDot(document.getElementById('edit-checkout').value);
+      const nights = document.getElementById('edit-nights').value;
+      const adults = document.getElementById('edit-adults').value;
+
+      const template = `Вітаємо, ${name}
+
+Ви залишали заявку на нашому сайті для бронювання номеру категорії ${room} на період ${checkIn} - ${checkOut} (${nights} ночей).
+Дорослих - ${adults}
+
+Загальна сума до сплати: ${amount} грн.
+На цей період в нас діє передоплата 50%.
+
+У вартість проживання входить: 
+✅сніданок у форматі шведської лінії
+✅безлімітний доступ до СПА-комплексу
+✅користування дитячою кімнатою
+✅паркомісце
+✅доступ до ігрової зони із більярдом, настільним футболом та PlayStation 5
+${link}
+Підкажіть, заявка залишається актуальною для Вас?`;
+
+      document.getElementById('output-request').value = template;
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab').forEach((tab) => {
+        tab.classList.toggle('active', tab.dataset.tab === tabId);
+      });
+      document.getElementById('output-message').style.display = tabId === 'tab-confirm' ? '' : 'none';
+      document.getElementById('output-request').style.display = tabId === 'tab-request' ? '' : 'none';
+    }
+
+    let toastTimer = null;
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    async function copyResult() {
+      const activeTab = (document.querySelector('.tab.active') || {}).dataset;
+      const isRequest = activeTab && activeTab.tab === 'tab-request';
+      const outputElement = document.getElementById(isRequest ? 'output-request' : 'output-message');
+
+      try {
+        await navigator.clipboard.writeText(outputElement.value);
+      } catch (e) {
+        outputElement.focus();
+        outputElement.select();
+        document.execCommand('copy');
+      }
+
+      showToast("Повідомлення скопійовано в буфер обміну.");
     }
 
     function clearAll() {
@@ -370,13 +695,44 @@ _Зверніть увагу: тариф - без повернення кошт�
       document.getElementById('edit-booking').value = '';
       document.getElementById('edit-room').value = '';
       document.getElementById('edit-guests').value = '';
+      document.getElementById('edit-adults').value = '';
       document.getElementById('edit-checkin').value = '';
       document.getElementById('edit-checkout').value = '';
       document.getElementById('edit-nights').value = '';
       document.getElementById('edit-amount').value = '';
+      document.getElementById('edit-prepay').value = '';
+      document.getElementById('edit-remainder').value = '';
       document.getElementById('edit-link').value = 'https://tavelhotel.com/';
       document.getElementById('output-message').value = '';
+      document.getElementById('output-request').value = '';
+      document.getElementById('partial-verify').textContent = '';
+
+      document.querySelector('input[name="discount"][value="5"]').checked = true;
+      document.querySelector('input[name="payment"][value="checkin"]').checked = true;
+      document.getElementById('partial-fields').style.display = 'none';
+      switchTab('tab-confirm');
     }
+
+    // Реакція на зміну радіокнопок знижки та поділу рахунку
+    document.querySelectorAll('input[name="discount"]').forEach((radio) => {
+      radio.addEventListener('change', generateMessage);
+    });
+
+    document.querySelectorAll('input[name="payment"]').forEach((radio) => {
+      radio.addEventListener('change', () => {
+        const partial = isPartial();
+        document.getElementById('partial-fields').style.display = partial ? 'block' : 'none';
+        if (partial) {
+          setPartialDefaults();
+        }
+        generateMessage();
+      });
+    });
+
+    // Живе оновлення при редагуванні полів
+    document.querySelectorAll('input[id^="edit-"]').forEach((inputEl) => {
+      inputEl.addEventListener('input', generateMessage);
+    });
   </script>
 </body>
 
