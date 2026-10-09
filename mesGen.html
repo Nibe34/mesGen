@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Генератор повідомлень рецепції</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f7f6;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+
+    #output-message {
+      height: 400px;
+      background-color: #fafafa;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 16px;
+      color: #444;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+    }
+
+    .form-group label {
+      width: 180px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-group input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .btn {
+      background-color: #0056b3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background-color: #004494;
+    }
+
+    .btn-success {
+      background-color: #28a745;
+    }
+
+    .btn-success:hover {
+      background-color: #218838;
+    }
+
+    .btn-danger {
+      background-color: #dc3545;
+    }
+
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
+
+    .controls {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <!-- Вхідні дані -->
+    <div class="panel">
+      <h2>1. Вставте повідомлення від системи</h2>
+      <textarea id="input-system" placeholder="Вставте системне повідомлення сюди..."></textarea>
+    </div>
+
+    <!-- Редактор змінних -->
+    <div class="panel">
+      <h2>2. Перевірте та відредагуйте дані</h2>
+      <div class="editor-grid">
+        <div class="form-group">
+          <label>Ім'я гостя (кличний відмінок):</label>
+          <input type="text" id="edit-name">
+        </div>
+        <div class="form-group">
+          <label>Номер бронювання:</label>
+          <input type="text" id="edit-booking">
+        </div>
+        <div class="form-group">
+          <label>Тип номеру:</label>
+          <input type="text" id="edit-room">
+        </div>
+        <div class="form-group">
+          <label>Кількість гостей:</label>
+          <input type="text" id="edit-guests">
+        </div>
+        <div class="form-group">
+          <label>Дата заїзду:</label>
+          <input type="text" id="edit-checkin">
+        </div>
+        <div class="form-group">
+          <label>Дата виїзду:</label>
+          <input type="text" id="edit-checkout">
+        </div>
+        <div class="form-group">
+          <label>Кількість ночей:</label>
+          <input type="text" id="edit-nights">
+        </div>
+        <div class="form-group">
+          <label>Сума (грн):</label>
+          <input type="text" id="edit-amount">
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <label style="width: 180px;">Посилання на номер:</label>
+          <input type="text" id="edit-link" value="https://tavelhotel.com/">
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="generateMessage()">Оновити повідомлення</button>
+      </div>
+    </div>
+
+    <!-- Результат -->
+    <div class="panel full-width">
+      <h2>3. Готове повідомлення для клієнта</h2>
+      <textarea id="output-message" readonly></textarea>
+      <div class="controls">
+        <button class="btn btn-success" onclick="copyResult()">Скопіювати повідомлення</button>
+        <button class="btn btn-danger" onclick="clearAll()">Очистити все</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const inputElement = document.getElementById('input-system');
+
+    // Автоматичний парсинг при вставці тексту
+    inputElement.addEventListener('input', () => {
+      parseSystemMessage(inputElement.value);
+    });
+
+    const ukrMonths = {
+      "січня": 0, "лютого": 1, "березня": 2, "квітня": 3, "травня": 4, "червня": 5,
+      "липня": 6, "серпня": 7, "вересня": 8, "жовтня": 9, "листопада": 10, "грудня": 11
+    };
+
+    function calculateNights(date1Str, date2Str) {
+      try {
+        const parseDate = (str) => {
+          const parts = str.trim().split(" ");
+          if (parts.length >= 3) {
+            const d = parseInt(parts[0]);
+            const m = ukrMonths[parts[1].toLowerCase()];
+            const y = parseInt(parts[2]);
+            if (!isNaN(d) && m !== undefined && !isNaN(y)) {
+              return new Date(y, m, d);
+            }
+          }
+          return null;
+        };
+
+        const d1 = parseDate(date1Str);
+        const d2 = parseDate(date2Str);
+
+        if (d1 && d2) {
+          const diffTime = Math.abs(d2 - d1);
+          return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      return "";
+    }
+
+    function parseSystemMessage(text) {
+      if (!text.trim()) return;
+
+      const bookingMatch = text.match(/Бронювання #(\d+)/i);
+      const nameMatch = text.match(/Ім'я:\s*(.+)/i);
+      const datesMatch = text.match(/Обрані дати:\s*(.+?)\s*-\s*(.+)/i);
+      const roomMatch = text.match(/Тип кімнати:\s*(.+)/i);
+      const amountMatch = text.match(/Сума:\s*([\d\s]+)/i);
+      const adultsMatch = text.match(/Дорослі гості:\s*(\d+)/i);
+      const childrenMatch = text.match(/Маленькі гості:\s*(\d+)/i);
+
+      let name = nameMatch ? nameMatch[1].trim() : "";
+      let firstName = name.split(" ")[0] || "";
+
+      let checkIn = "";
+      let checkOut = "";
+      let nights = "";
+
+      if (datesMatch) {
+        checkIn = datesMatch[1].trim();
+        checkOut = datesMatch[2].trim();
+        nights = calculateNights(checkIn, checkOut);
+      }
+
+      let adults = adultsMatch ? parseInt(adultsMatch[1]) : 0;
+      let children = childrenMatch ? parseInt(childrenMatch[1]) : 0;
+      let totalGuests = adults + children;
+
+      let amount = amountMatch ? amountMatch[1].replace(/\s/g, "") : "";
+
+      document.getElementById('edit-booking').value = bookingMatch ? `R${bookingMatch[1]}` : "";
+      document.getElementById('edit-name').value = firstName;
+      document.getElementById('edit-room').value = roomMatch ? roomMatch[1].trim().toUpperCase() : "";
+      document.getElementById('edit-guests').value = totalGuests;
+      document.getElementById('edit-checkin').value = checkIn;
+      document.getElementById('edit-checkout').value = checkOut;
+      document.getElementById('edit-nights').value = nights;
+      document.getElementById('edit-amount').value = amount ? `${amount}.00` : "";
+
+      generateMessage();
+    }
+
+    function generateMessage() {
+      const name = document.getElementById('edit-name').value;
+      const booking = document.getElementById('edit-booking').value;
+      const room = document.getElementById('edit-room').value;
+      const guests = document.getElementById('edit-guests').value;
+      const nights = document.getElementById('edit-nights').value;
+      const amount = document.getElementById('edit-amount').value;
+      const link = document.getElementById('edit-link').value;
+      const checkIn = document.getElementById('edit-checkin').value;
+      const checkOut = document.getElementById('edit-checkout').value;
+
+      const template = `Вітаємо, ${name}! ☺️
+Дякуємо, що обираєте готель TAVEL! ❤️
+Раді повідомити, що Ваше бронювання підтверджено.
+
+🔹 Номер бронювання: *${booking}*  
+🔹 Тип номеру: ${room} 
+🔹 Кількість гостей: ${guests} осіб.
+🔹 Кількість ночей: ${nights}.
+🔹 Вартість проживання: ${amount} грн. _- із врахуванням знижки Постійного гостя (-5%)_
+🔹 Посилання на світлини номеру: ${link}
+
+🔍Правила та умови розміщення: https://tavelhotel.com/pravyla-publichnoyi-oferty/
+
+📅 Дати проживання:
+Заїзд: ${checkIn} з 15:00
+Виїзд: ${checkOut} до 12:00
+
+*💳 Умови оплати: оплата при поселенні - в розмірі ${amount} грн.*
+
+У вкладеному файлі надсилаємо Вам підтвердження бронювання.
+
+_Зверніть увагу: тариф - без повернення коштів. Оплата рахунку є укладенням Покупцем Договору з Продавцем на замовлені та оплачені послуги на умовах, вказаних у рахунку.
+*Оплата рахунку засвідчує, що Покупець погоджується із вказаними в ньому умовами. У випадку скасування бронювання (при письмовому зверненні на електронну пошту більше, ніж за 20 днів до дати заїзду) оплачені кошти залишаються на рахунку, який Ви сплачували, для оплати нового Вашого бронювання у нашому готелі впродовж одного календарного року.
+Скасування бронювання зі збереженням оплати при зверненні менше, ніж 20 днів до заїзду можливе за поважної причини та  документального її підтвердження.
+Зміна дати проживання (при письмовому зверненні на електронну пошту менше ніж за 20 днів до дати заїзду) відбувається зі створенням нового бронювання по актуальних на день внесення змін тарифах.
+Скасування бронювання відбувається зі збереженням коштів на рахунку для оплати нового бронювання з терміном використання впродовж 1 календарного року.
+Додатково сповіщаємо Вас:  у готелі діє гнучка система знижок, розмір яких може коливатися залежно від дати бронювання, а також кількості запитів на бронювання обраної категорії номеру.  Після підтвердження бронювання за Вами в індивідуальному порядку закріплюються умови, що діяли на момент створення бронювання. З моменту підтвердження бронювання до дня Вашого заїзду, попередньо закріплені умови залишаються незмінними._
+
+У вартість проживання входить:
+🍳 Сніданок — з 08:00 до 11:00 у форматі шведської лінії.
+🏊 Infinity-басейн на даху — безлімітне користування найбільшим у регіоні infinity-басейном на даху (18×6 м) з 09:00 до 21:00 для всіх гостей.
++🌙 Нічне користування — з 21:00 до 22:00 для гостей віком від 16 років.
+🧖 SPA-комплекс — безлімітне користування з 09:00 до 21:00 для всіх гостей + 🌙 нічне SPA з 21:00 до 00:00 для гостей віком від 16 років.
+
+До SPA-комплексу входять:
+🏊 основний внутрішній басейн 20×6 м;
+👧 дитячий басейн 3×3 м;
+💦 гідромасажний басейн із прозорого скла 6×3 м;
+🫧 два джакузі;
+🕌 римо-турецька сауна (хамам);
+🔥 фінська сауна;
+🌿 карпатська та травʼяна арома-сауни;
+❄️ холодна купіль;
+🧂 соляна кімната;
+💧 ванночки Кнейпа з різною температурою води;
+🛏 зона релаксу з лежаками.
+①⑥+ Окремий SPA-комплекс 16+ — безлімітне користування з 09:00 до 00:00 для гостей віком від 16 років. До комплексу входять:
+🛁 бані офуро — контрастні басейни з різними температурами;
+🌄 панорамна relax-сауна;
+🌾 Травʼяна кімната;
+🚿 Душ вражень;
+🪣 відро «Карпатський душ».
+🏋️ Спортивна зала — безлімітне користування.
+🧘 Безкоштовні welness-заняття з пілатесу, стрейчингу — з пʼятниці по неділю.
+🎱 Ігрова зона — безлімітне користування більярдом, настільним футболом та ігровими приставками Sony PlayStation 5.
+👧 Дитяча кімната з аніматором — безкоштовно з 09:00 до 21:00.
+🌬 Час провітрювання: 13:30–14:00 та 18:30–19:00. Під час провітрювання дитяча кімната не працює. Діти до 3 років перебувають під наглядом батьків.
+🎟 Знижка 15% на аквапарк Mavka — надається після поселення та заповнення анкети гостя.
+*Посилання на заповнення анкети для знижки:* (https://forms.gle/rFeqBNAf3LuHGd9Y8)
+🚗 Паркінг — безкоштовний. Перед реєстрацією Вам потрібно під'їхати до головного входу в готель, далі ми підкажемо де саме Ви паркуватиметесь.
+
+Переглянути всі деталі про номери Ви зможете на нашому сайті: https://tavelhotel.com
+Геолокація готелю: https://maps.app.goo.gl/pANxDSucWZMHyczD7
+
+Додаткова інформація (додаткові послуги)
+◼️Діти до 5-ти років проживають безкоштовно (без претензій на послуги).
+◼️ Проживання з тваринами – під повну відповідальність гостя (в т.ч. матеріальну) та за додаткову оплату (вартість із 01.09.2026 до 22.12.2026 - 700 грн/ніч). Проживання з тваринами оплачується додатково і не входить у вартість бронювання.
+◼️Послуги ТК «Буковель» (катання, підйомники, екскурсії тощо) не входять у вартість проживання.
+
+У разі змін або додаткових побажань – будь ласка, звертайтесь у будь-який зручний для вас спосіб.
+До зустрічі в TAVEL – там, де комфорт і краса Карпат створюють справжній відпочинок. 🏞💫`;
+
+      document.getElementById('output-message').value = template;
+    }
+
+    function copyResult() {
+      const outputElement = document.getElementById('output-message');
+      outputElement.select();
+      document.execCommand('copy');
+      alert("Повідомлення скопійовано в буфер обміну.");
+    }
+
+    function clearAll() {
+      document.getElementById('input-system').value = '';
+      document.getElementById('edit-name').value = '';
+      document.getElementById('edit-booking').value = '';
+      document.getElementById('edit-room').value = '';
+      document.getElementById('edit-guests').value = '';
+      document.getElementById('edit-checkin').value = '';
+      document.getElementById('edit-checkout').value = '';
+      document.getElementById('edit-nights').value = '';
+      document.getElementById('edit-amount').value = '';
+      document.getElementById('edit-link').value = 'https://tavelhotel.com/';
+      document.getElementById('output-message').value = '';
+    }
+  </script>
+</body>
+
+</html>
